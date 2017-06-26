@@ -1,0 +1,33 @@
+- name: install and upgrade minemeld
+  hosts: all
+  user: ubuntu
+  gather_facts: no
+  tasks:
+    - name: waiting for cloud-init
+      shell: find /var/lib/cloud/instances -name boot-finished | grep -q -E ".*"
+      delay: 6
+      retries: 20
+      register: result
+      until: result | success
+    - name: install repo key
+      shell: 'wget -qO - https://minemeld-updates.panw.io/gpg.key | sudo apt-key add -'
+      become: true
+    - name: add stable repo
+      apt_repository:
+        repo: deb http://minemeld-updates.panw.io/ubuntu trusty-minemeld main
+        state: present
+      become: true
+    - name: install minemeld
+      apt:
+        update_cache: yes
+        name: minemeld
+        state: latest
+      become: true
+    - name: install rsyslog
+      apt:
+        name: '{{ item }}'
+        state: latest
+      become: true
+      with_items:
+        - rsyslog-minemeld
+        - rsyslog-mmnormalize

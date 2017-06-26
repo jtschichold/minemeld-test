@@ -1,0 +1,179 @@
+- name: setup infrastructure
+  hosts: 127.0.0.1
+  connection: local
+  gather_facts: false
+
+  vars_prompt:
+    - name: clientlocation
+      prompt: Client Location ? (CIDR)
+      private: no
+    - name: jenkinskeyname
+      prompt: SSH Key for Jenkins ?
+      private: no
+
+  tasks:
+    - name: start jenkins CFN template
+      cloudformation:
+        stack_name: minemeld-ci-jenkins
+        state: present
+        region: us-west-2
+        disable_rollback: false
+        template: files/jenkins-cfn.json
+        template_parameters:
+          ClientLocation: '{{ clientlocation }}'
+          InstanceKeyName: '{{ jenkinskeyname }}'
+          InstanceType: m3.medium
+        tags:
+          Stack: minemeld
+      register: jenkins_cfn
+    - debug:
+        msg: 'Jenkins host: {{ jenkins_cfn.stack_outputs.JenkinsAddress }}'
+    - name: wait for ssh
+      wait_for:
+        host: "{{ jenkins_cfn.stack_outputs.JenkinsAddress }}"
+        port: 22
+        delay: 20
+        timeout: 320
+        state: started
+      when: jenkins_cfn.changed
+    - name: add jenkins instance to host group
+      add_host: hostname={{ jenkins_cfn.stack_outputs.JenkinsAddress }} groups=jenkins
+
+- name: configure jenkins
+  hosts: jenkins
+  user: ubuntu
+  gather_facts: no
+
+  vars:
+    jenkins_admin_username: admin
+    jenkins_admin_password: minemeld
+
+  vars_prompt:
+    - name: ansibleawsshkey
+      prompt: SSH Key for Ansible AWS ?
+      private: no
+    - name: aws_access_key_id
+      prompt: AWS Access Key for Ansible ?
+      private: no
+    - name: aws_secret_access_key
+      prompt: AWS Secret Access Key for Ansible ?
+      private: yes
+
+  tasks:
+    - name: waiting for cloud-init
+      shell: find /var/lib/cloud/instances -name boot-finished | grep -q -E ".*"
+      delay: 6
+      retries: 20
+      register: result
+      until: result | success
+    - name: disable wizard
+      lineinfile:
+        dest: /etc/default/jenkins
+        insertafter: JAVA_ARGS=
+        regexp: '^JAVA_ARGS=\"\$JAVA_ARGS '
+        line: 'JAVA_ARGS="$JAVA_ARGS -Djenkins.install.runSetupWizard=false"'
+        state: present
+      become: true
+    - name: create custom init scripts directory.
+      file:
+        path: "/var/lib/jenkins/init.groovy.d"
+        state: directory
+        owner: jenkins
+        group: jenkins
+        mode: 0775
+      become: true
+    - name: configure default users
+      template:
+        src: basic-security.groovy
+        dest: /var/lib/jenkins/init.groovy.d/basic-security.groovy
+        owner: jenkins
+        group: jenkins
+        mode: 0775
+      become: true
+    - name: restart jenkins
+      service: name=jenkins state=restarted
+      become: true
+    - name: wait for jenkins
+      uri:
+        url: http://localhost:8080
+        status_code: 403
+        timeout: 5
+      register: jenkins_service_status
+      retries: 60
+      delay: 5
+      until: >
+         'status' in jenkins_service_status and
+         jenkins_service_status['status'] == 403
+    - name: install Jenkins plugins using password
+      jenkins_plugin:
+        name: "{{ item }}"
+        jenkins_home: /var/lib/jenkins
+        params:
+          url_username: "{{ jenkins_admin_username }}"
+          url_password: "{{ jenkins_admin_password }}"
+      with_items:
+        - dashboard-view
+        - cloudbees-folder
+        - timestamper
+        - ws-cleanup
+        - junit
+        - workflow-aggregator
+        - github-branch-source
+        - pipeline-github-lib
+        - pipeline-stage-view
+        - git
+        - github
+        - email-ext
+        - mailer
+        - ansible
+        - envinject
+        - ansicolor
+    - name: restart jenkins
+      service: name=jenkins state=restarted
+      become: true
+
+    - name: copy ansible config
+      copy:
+        src: ansible.cfg
+        dest: /var/lib/jenkins/.ansible.cfg
+        owner: jenkins
+        group: jenkins
+      become: true
+    - name: ssh key directory
+      file:
+        path: /var/lib/jenkins/ssh
+        state: directory
+        owner: jenkins
+        group: jenkins
+      become: true
+    - name: ssh key for ansible AWS slaves
+      copy:
+        src: '{{ ansibleawsshkey }}'
+        dest: /var/lib/jenkins/ssh/aws.pem
+        owner: jenkins
+        group: jenkins
+        mode: 0600
+      become: true
+    - name: aws credentials directory
+      file:
+        path: /var/lib/jenkins/.aws
+        state: directory
+        owner: jenkins
+        group: jenkins
+      become: true
+    - name: aws credentials
+      template:
+        src: aws-credentials
+        dest: /var/lib/jenkins/.aws/credentials
+        owner: jenkins
+        group: jenkins
+        mode: 0600
+      become: true
+
+    - name: setup jenkins upgrade test job
+      jenkins_job:
+        config: "{{ lookup('file', 'templates/job-upgrade.xml') }}"
+        name: MineMeld-Upgrade-Test
+        url: http://localhost:8080
+        user: "{{ jenkins_admin_username }}"
+        password: "{{ jenkins_admin_password }}"

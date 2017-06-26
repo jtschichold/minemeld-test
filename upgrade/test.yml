@@ -1,91 +1,8 @@
-- name: instantiate EC2 instance
-  hosts: 127.0.0.1
-  gather_facts: False
-  connection: local
-  tasks:
-    - name: mm-test ec2 group
-      ec2_group:
-        name: mm-upgrade-test-sg
-        description: security group for mm test instances
-        region: us-west-2
-        rules:
-          - proto: tcp
-            from_port: 22
-            to_port: 22
-            cidr_ip: 0.0.0.0/0
-        rules_egress:
-          - proto: all
-            cidr_ip: 0.0.0.0/0
-    - name: create new instance
-      ec2:
-        group: mm-upgrade-test-sg
-        key_name: minemeld-panw
-        instance_type: m3.medium
-        image: ami-d94f5aa0
-        wait: true
-        exact_count: 1
-        count_tag:
-          Name: mm-upgrade-test
-        instance_tags:
-          Name: mm-upgrade-test
-        region: us-west-2
-        spot_price: 0.09
-        user_data: |
-          #!/bin/bash
-          set -x
-          apt-get update
-          apt-get dist-upgrade
-          apt-get install -y python-minimal acl
-      register: ec2
-    - name: dump ec2
-      debug:
-        msg: "Test instance: {{ ec2.tagged_instances[0].public_ip }}"
-    - name: wait for ssh
-      wait_for:
-        host: "{{ item.public_dns_name }}"
-        port: 22
-        delay: 20
-        timeout: 320
-        state: started
-      with_items: "{{ ec2.tagged_instances }}"
-      when: ec2.changed
-    - name: Add all instance public IPs to host group
-      add_host: hostname={{ item.public_ip }} groups=ec2hosts
-      with_items: "{{ ec2.tagged_instances }}"
-
-- name: install and upgrade minemeld
-  hosts: ec2hosts
+- name: activate beta channels and upgrade minemeld
+  hosts: all
   user: ubuntu
   gather_facts: no
   tasks:
-    - name: waiting for cloud-init
-      shell: find /var/lib/cloud/instances -name boot-finished | grep -q -E ".*"
-      delay: 6
-      retries: 20
-      register: result
-      until: result | success
-    - name: install repo key
-      shell: 'wget -qO - https://minemeld-updates.panw.io/gpg.key | sudo apt-key add -'
-      become: true
-    - name: add stable repo
-      apt_repository:
-        repo: deb http://minemeld-updates.panw.io/ubuntu trusty-minemeld main
-        state: present
-      become: true
-    - name: install minemeld
-      apt:
-        update_cache: yes
-        name: minemeld
-        state: latest
-      become: true
-    - name: install rsyslog
-      apt:
-        name: '{{ item }}'
-        state: latest
-      become: true
-      with_items:
-        - rsyslog-minemeld
-        - rsyslog-mmnormalize
     - name: check minemeld status
       shell: mm-supervisorctl status | grep RUNNING | wc -l
       delay: 10
@@ -123,13 +40,6 @@
           - 'item.state == 5'
           - 'item.sub_state is not defined or item.sub_state != "ERROR"'
       with_items: '{{ status.json.result }}'
-
-
-- name: activate beta channels and upgrade minemeld
-  hosts: ec2hosts
-  user: ubuntu
-  gather_facts: no
-  tasks:
     - name: add unstable repo
       apt_repository:
         repo: deb http://minemeld-updates.panw.io/ubuntu trusty-minemeld-unstable main
@@ -230,21 +140,3 @@
           - 'item.state == 5'
           - 'item.sub_state is not defined or item.sub_state != "ERROR"'
       with_items: '{{ status.json.result }}'
-
-- name: free EC2 resources
-  hosts: 127.0.0.1
-  gather_facts: False
-  connection: local
-  tasks:
-    - name: terminate instances that were previously launched
-      ec2:
-        state: absent
-        region: us-west-2
-        instance_ids: '{{ item.id }}'
-        wait: true
-      with_items: '{{ ec2.tagged_instances }}'
-    - name: delete security group
-      ec2_group:
-        name: mm-upgrade-test-sg
-        state: absent
-        region: us-west-2

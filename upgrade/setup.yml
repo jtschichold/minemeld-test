@@ -1,0 +1,55 @@
+- name: instantiate EC2 instance
+  hosts: 127.0.0.1
+  gather_facts: False
+  connection: local
+  tasks:
+    - name: mm-test ec2 group
+      ec2_group:
+        name: mm-upgrade-test-sg
+        description: security group for mm test instances
+        region: us-west-2
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: 0.0.0.0/0
+        rules_egress:
+          - proto: all
+            cidr_ip: 0.0.0.0/0
+    - name: create new instance
+      ec2:
+        group: mm-upgrade-test-sg
+        key_name: "{{ lookup('env', 'AWS_KEY_NAME') }}"
+        instance_type: m3.medium
+        image: ami-d94f5aa0
+        wait: true
+        exact_count: 1
+        count_tag:
+          Name: mm-upgrade-test
+        instance_tags:
+          Name: mm-upgrade-test
+        region: "{{ lookup('env', 'AWS_REGION') }}"
+        spot_price: 0.09
+        user_data: |
+          #!/bin/bash
+          set -x
+          apt-get update
+          apt-get dist-upgrade
+          apt-get install -y python-minimal acl
+      register: ec2
+    - name: dump ec2
+      debug:
+        msg: "Test instance: {{ ec2.tagged_instances[0].public_ip }}"
+    - name: wait for ssh
+      wait_for:
+        host: "{{ item.public_dns_name }}"
+        port: 22
+        delay: 20
+        timeout: 320
+        state: started
+      with_items: "{{ ec2.tagged_instances }}"
+      when: ec2.changed
+    - name: write inventory
+      template:
+        src: mm-test-inventory
+        dest: "{{ playbook_dir }}/mm-test-inventory"

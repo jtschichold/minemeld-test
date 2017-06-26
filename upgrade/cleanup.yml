@@ -1,0 +1,26 @@
+- name: free EC2 resources
+  hosts: 127.0.0.1
+  gather_facts: False
+  connection: local
+  tasks:
+    - name: retrieve tagged instances
+      ec2_remote_facts:
+        region: us-west-2
+        filters:
+          instance-state-name: running
+          "tag:Name": mm-upgrade-test
+      register: ec2
+    - debug:
+        msg: 'instances {{ ec2 }}'
+    - name: terminate instances that were previously launched
+      ec2:
+        state: absent
+        region: us-west-2
+        instance_ids: '{{ item.id }}'
+        wait: true
+      with_items: '{{ ec2.instances }}'
+    - name: delete security group
+      ec2_group:
+        name: mm-upgrade-test-sg
+        state: absent
+        region: us-west-2

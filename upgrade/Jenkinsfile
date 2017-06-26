@@ -1,0 +1,41 @@
+pipeline {
+    agent any
+    stages {
+        stage('Setup') {
+            steps {
+                wrap([$class: 'AnsiColorBuildWrapper', colorMapName: "xterm"]) {
+                    ansiblePlaybook(playbook: 'upgrade/setup.yml', colorized: true)
+                }
+            }
+        }
+        stage('Install') {
+            steps {
+                wrap([$class: 'AnsiColorBuildWrapper', colorMapName: "xterm"]) {
+                    ansiblePlaybook(
+                        playbook: 'upgrade/install.yml',
+                        inventory: 'upgrade/mm-test-inventory',
+                        colorized: true
+                    )
+                }
+            }
+        }
+        stage('Test') {
+            steps {
+                wrap([$class: 'AnsiColorBuildWrapper', colorMapName: "xterm"]) {
+                    ansiblePlaybook(
+                        playbook: 'upgrade/test.yml',
+                        inventory: 'upgrade/mm-test-inventory',
+                        colorized: true
+                    )
+                }
+            }
+        }
+    }
+    post {
+        always {
+            wrap([$class: 'AnsiColorBuildWrapper', colorMapName: "xterm"]) {
+                ansiblePlaybook(playbook: 'upgrade/cleanup.yml', colorized: true)
+            }
+        }
+    }
+}
