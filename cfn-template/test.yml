@@ -1,0 +1,48 @@
+- name: setup infrastructure
+  hosts: 127.0.0.1
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: start minemeld CFN template
+      cloudformation:
+        stack_name: minemeld-cfn-test
+        state: present
+        region: "{{ lookup('env', 'AWS_REGION') | default('us-west-2', true)}}"
+        disable_rollback: false
+        template_url: "{{ lookup('env', 'MINEMELD_CFN_URL') | default('https://minemeld-dist.s3.amazonaws.com/0_9/minemeld-cfn-latest.json', true) }}"
+        template_parameters:
+          ClientLocation: '0.0.0.0/0'
+          InstanceKeyName: "{{ lookup('env', 'AWS_KEY_NAME') }}"
+          InstanceType: m3.medium
+        tags:
+          Stack: minemeld-test
+      register: minemeld_cfn
+    - debug:
+        msg: 'CFN output: {{ minemeld_cfn }}'
+    - name: wait for port 443
+      wait_for:
+        host: "{{ minemeld_cfn.stack_outputs.MinemeldAddress }}"
+        port: 443
+        delay: 20
+        timeout: 1200
+        state: started
+      when: minemeld_cfn.changed
+    - name: check minemeld API
+      uri:
+        url: "https://{{ minemeld_cfn.stack_outputs.MinemeldAddress }}/status/minemeld"
+        validate_certs: no
+        user: admin
+        password: minemeld
+        force_basic_auth: yes
+        return_content: yes
+      register: status
+      delay: 30
+      retries: 10
+      until: status['status']|default(0) == 200
+    - name: check nodes
+      assert:
+        that:
+          - 'item.state == 5'
+          - 'item.sub_state is not defined or item.sub_state != "ERROR"'
+      with_items: '{{ status.json.result }}'

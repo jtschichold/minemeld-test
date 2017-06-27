@@ -1,0 +1,19 @@
+pipeline {
+    agent any
+    stages {
+        stage('Test') {
+            steps {
+                wrap([$class: 'AnsiColorBuildWrapper', colorMapName: "xterm"]) {
+                    ansiblePlaybook(playbook: 'cfn-template/test.yml', colorized: true)
+                }
+            }
+        }
+    }
+    post {
+        always {
+            wrap([$class: 'AnsiColorBuildWrapper', colorMapName: "xterm"]) {
+                ansiblePlaybook(playbook: 'cfn-template/cleanup.yml', colorized: true)
+            }        
+        }
+    }
+}

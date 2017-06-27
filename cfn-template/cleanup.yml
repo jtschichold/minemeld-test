@@ -1,0 +1,11 @@
+- name: setup infrastructure
+  hosts: 127.0.0.1
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: delete minemeld CFN template
+      cloudformation:
+        stack_name: minemeld-cfn-test
+        state: absent
+        region: "{{ lookup('env', 'AWS_REGION') | default('us-west-2', true)}}"

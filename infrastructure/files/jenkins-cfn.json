@@ -113,7 +113,7 @@
                                 "apt-get install -y jenkins python-minimal python-dev libssl-dev gcc",
                                 "wget https://bootstrap.pypa.io/get-pip.py",
                                 "python get-pip.py",
-                                "pip install ansible boto python-jenkins lxml",
+                                "pip install ansible boto python-jenkins lxml boto3 botocore",
                                 "service jenkins start"
                             ]
                         ]
