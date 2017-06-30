@@ -12,8 +12,8 @@
   <properties>
     <EnvInjectJobProperty plugin="envinject@2.1.1">
       <info>
-        <propertiesContent>AWS_KEY_NAME=minemeld-panw
-AWS_REGION=us-west-2</propertiesContent>
+        <propertiesContent>AWS_KEY_NAME={{ slave_aws_key_name }}
+AWS_REGION={{ slave_aws_region }}</propertiesContent>
         <secureGroovyScript plugin="script-security@1.29">
           <script></script>
           <sandbox>false</sandbox>
@@ -43,7 +43,7 @@ AWS_REGION=us-west-2</propertiesContent>
       <submoduleCfg class="list"/>
       <extensions/>
     </scm>
-    <scriptPath>cfn-template/Jenkinsfile</scriptPath>
+    <scriptPath>tests/cfn-template/Jenkinsfile</scriptPath>
     <lightweight>true</lightweight>
   </definition>
   <triggers/>

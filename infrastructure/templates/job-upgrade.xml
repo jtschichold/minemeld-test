@@ -12,8 +12,8 @@
   <properties>
     <EnvInjectJobProperty plugin="envinject@2.1.1">
       <info>
-        <propertiesContent>AWS_REGION=us-west-2
-AWS_KEY_NAME=minemeld-panw</propertiesContent>
+        <propertiesContent>AWS_REGION={{ slave_aws_region }}
+AWS_KEY_NAME={{ slave_aws_key_name }}</propertiesContent>
         <secureGroovyScript plugin="script-security@1.29">
           <script></script>
           <sandbox>false</sandbox>
@@ -46,7 +46,7 @@ AWS_KEY_NAME=minemeld-panw</propertiesContent>
       <submoduleCfg class="list"/>
       <extensions/>
     </scm>
-    <scriptPath>upgrade/Jenkinsfile</scriptPath>
+    <scriptPath>tests/upgrade/Jenkinsfile</scriptPath>
     <lightweight>true</lightweight>
   </definition>
   <triggers/>

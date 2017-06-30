@@ -1,3 +1,3 @@
 ---
 # change this to the path of the jenkins SSH key
-ansible_ssh_private_key_file: "{{ lookup('env','JENKINS_SSH_KEY') }}"
+ansible_ssh_private_key_file: "{{ lookup('env','CICT_SSH_PRIVATE_KEY_FILE') }}"

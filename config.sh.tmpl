@@ -1,0 +1,77 @@
+# Path to Ansible playbook executable
+#
+# Example:
+# ANSIBLE_PLAYBOOK=../venv/bin/ansible-playbook
+ANSIBLE_PLAYBOOK=
+
+# CIDRs of the clients. This is used in the AWS Security Group
+# to permit traffic from this CIDR to port 8080 and 22 of Jenkins
+# EC2 instance
+#
+# Example:
+# CICT_CLIENT_LOCATION="195.103.76.0/24"
+CICT_CLIENT_LOCATION=
+
+# name of the AWS SSH Key Pair to be used for the Jenkins EC2 instance
+# This AWS Key Pair should be already defined in the AWS region
+#
+# Example:
+# CICT_AWS_KEY_NAME="my-jenkins-aws-key-pair"
+CICT_AWS_KEY_NAME=
+
+# Path to the SSH Private Key for the Jenkins instance. Basically this is
+# the path to the private key of CICT_AWS_KEY_NAME
+#
+# Example:
+# CICT_SSH_PRIVATE_KEY_FILE="/home/test/my-jenkins-aws-key-pair.pem"
+CICT_SSH_PRIVATE_KEY_FILE=
+
+# AWS Region for the Jenkins instance
+# 
+# Example:
+# CICT_AWS_REGION="us-west-2"
+CICT_AWS_REGION=
+
+# Username for Jenkins
+#
+# Example:
+# CICT_ADMIN_USERNAME="admin"
+CICT_ADMIN_USERNAME=
+
+# Password for Jenkins
+#
+# Example:
+# CICT_ADMIN_PASSWORD="minemeld"
+CICT_ADMIN_PASSWORD=
+
+# AWS Access Key and AWS Secret Access Key to be used by Jenkins to
+# spin up EC2 slaves
+#
+# Example:
+# CICT_AWS_ACCESS_KEY_ID=blahblah
+# CICT_AWS_SECRET_ACCESS_KEY=secretblahblah
+CICT_AWS_ACCESS_KEY_ID=
+CICT_AWS_SECRET_ACCESS_KEY=
+
+# AWS region to be used for EC2 slave instances
+#
+# Example:
+# SLAVE_AWS_REGION='us-west-2'
+SLAVE_AWS_REGION=
+
+# Path to the SSH Private Key file to be used by Jenkins
+# to communicate with slave instances
+# Basically it's the private key file of the AWS Key specified
+# in SLAVE_AWS_KEY_NAME
+#
+# Example:
+# SLAVE_SSH_PRIVATE_KEY_FILE=/Users/lmori/minemeld-slave-key.pem
+SLAVE_SSH_PRIVATE_KEY_FILE=
+
+# name of the AWS SSH Key Pair to be used by Jenkins for the EC2 slave
+# instances. This AWS Key Pair should be already defined in the slave AWS
+# region
+#
+# Example:
+# SLAVE_AWS_KEY_NAME="my-slave-aws-key-pair"
+SLAVE_AWS_KEY_NAME=

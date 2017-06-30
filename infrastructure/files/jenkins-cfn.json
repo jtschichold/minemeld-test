@@ -106,7 +106,7 @@
                                 "#!/bin/bash",
                                 "set -x",
                                 "apt-get update",
-                                "apt-get dist-upgrade -y",
+                                "DEBIAN_FRONTEND=noninteractive apt-get -y -q -y -o Dpkg::Options::=\"--force-confdef\" -o Dpkg::Options::=\"--force-confold\" dist-upgrade",
                                 "wget -q -O - https://pkg.jenkins.io/debian-stable/jenkins.io.key | apt-key add -",
                                 "add-apt-repository \"deb https://pkg.jenkins.io/debian-stable binary/\"",
                                 "apt-get update",

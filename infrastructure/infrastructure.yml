@@ -3,25 +3,22 @@
   connection: local
   gather_facts: false
 
-  vars_prompt:
-    - name: clientlocation
-      prompt: Client Location ? (CIDR)
-      private: no
-    - name: jenkinskeyname
-      prompt: SSH Key for Jenkins ?
-      private: no
+  vars:
+    jenkins_client_location: "{{ lookup('env', 'CICT_CLIENT_LOCATION') }}"
+    jenkins_aws_key_name: "{{ lookup('env', 'CICT_AWS_KEY_NAME') }}"
+    jenkins_aws_region: "{{ lookup('env', 'CICT_AWS_REGION') }}"
 
   tasks:
     - name: start jenkins CFN template
       cloudformation:
         stack_name: minemeld-ci-jenkins
         state: present
-        region: us-west-2
+        region: "{{ jenkins_aws_region }}"
         disable_rollback: false
         template: files/jenkins-cfn.json
         template_parameters:
-          ClientLocation: '{{ clientlocation }}'
-          InstanceKeyName: '{{ jenkinskeyname }}'
+          ClientLocation: '{{ jenkins_client_location }}'
+          InstanceKeyName: '{{ jenkins_aws_key_name }}'
           InstanceType: m3.medium
         tags:
           Stack: minemeld
@@ -45,24 +42,18 @@
   gather_facts: no
 
   vars:
-    jenkins_admin_username: admin
-    jenkins_admin_password: minemeld
-
-  vars_prompt:
-    - name: ansibleawsshkey
-      prompt: SSH Key for Ansible AWS ?
-      private: no
-    - name: aws_access_key_id
-      prompt: AWS Access Key for Ansible ?
-      private: no
-    - name: aws_secret_access_key
-      prompt: AWS Secret Access Key for Ansible ?
-      private: yes
+    jenkins_admin_username: "{{ lookup('env', 'CICT_ADMIN_USERNAME') }}"
+    jenkins_admin_password: "{{ lookup('env', 'CICT_ADMIN_PASSWORD') }}"
+    jenkins_aws_access_key_id: "{{ lookup('env', 'CICT_AWS_ACCESS_KEY_ID') }}"
+    jenkins_aws_secret_access_key: "{{ lookup('env', 'CICT_AWS_SECRET_ACCESS_KEY') }}"
+    slave_private_ssh_key: "{{ lookup('env', 'SLAVE_SSH_PRIVATE_KEY_FILE') }}"
+    slave_aws_region: "{{ lookup('env', 'SLAVE_AWS_REGION') }}"
+    slave_aws_key_name: "{{ lookup('env', 'SLAVE_AWS_KEY_NAME') }}"
 
   tasks:
     - name: waiting for cloud-init
       shell: find /var/lib/cloud/instances -name boot-finished | grep -q -E ".*"
-      delay: 6
+      delay: 30
       retries: 20
       register: result
       until: result | success
@@ -148,7 +139,7 @@
       become: true
     - name: ssh key for ansible AWS slaves
       copy:
-        src: '{{ ansibleawsshkey }}'
+        src: '{{ slave_private_ssh_key }}'
         dest: /var/lib/jenkins/ssh/aws.pem
         owner: jenkins
         group: jenkins
