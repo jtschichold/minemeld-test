@@ -1,0 +1,12 @@
+version: '2'
+services:
+    minemeld:
+        image: jtschichold/minemeld:{{ minemeld_docker_tag }}
+        ports:
+            - '8443:443'
+        volumes:
+            - minemeld-local:/opt/minemeld/local
+        tmpfs: /run
+
+volumes:
+    minemeld-local:

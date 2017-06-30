@@ -5,7 +5,7 @@
   tasks:
     - name: mm-test ec2 group
       ec2_group:
-        name: mm-upgrade-test-sg
+        name: mm-docker-upgrade-test-sg
         description: security group for mm test instances
         region: "{{ lookup('env', 'AWS_REGION') }}"
         rules:
@@ -18,24 +18,30 @@
             cidr_ip: 0.0.0.0/0
     - name: create new instance
       ec2:
-        group: mm-upgrade-test-sg
+        group: mm-docker-upgrade-test-sg
         key_name: "{{ lookup('env', 'AWS_KEY_NAME') }}"
         instance_type: m3.medium
-        image: ami-d94f5aa0
+        image: ami-835b4efa
         wait: true
         exact_count: 1
         count_tag:
-          Name: mm-upgrade-test
+          Name: mm-docker-upgrade-test
         instance_tags:
-          Name: mm-upgrade-test
+          Name: mm-docker-upgrade-test
         region: "{{ lookup('env', 'AWS_REGION') }}"
         spot_price: 0.01
         user_data: |
           #!/bin/bash
           set -x
+          groupadd docker
+          usermod -aG docker ubuntu
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get -y -q -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" dist-upgrade
           apt-get install -y python-minimal acl
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+          add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+          apt-get update
+          apt-get install -y docker-ce docker-compose
       register: ec2
     - name: dump ec2
       debug:
