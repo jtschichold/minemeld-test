@@ -163,14 +163,14 @@
 
     - name: setup jenkins upgrade test job
       jenkins_job:
-        config: "{{ lookup('file', 'templates/job-upgrade.xml') }}"
+        config: "{{ lookup('template', 'templates/job-upgrade.xml') }}"
         name: MineMeld-Upgrade-Test
         url: http://localhost:8080
         user: "{{ jenkins_admin_username }}"
         password: "{{ jenkins_admin_password }}"
     - name: setup jenkins minemeld cfn test job
       jenkins_job:
-        config: "{{ lookup('file', 'templates/job-cfn-test.xml') }}"
+        config: "{{ lookup('template', 'templates/job-cfn-test.xml') }}"
         name: MineMeld-CFN-Test
         url: http://localhost:8080
         user: "{{ jenkins_admin_username }}"

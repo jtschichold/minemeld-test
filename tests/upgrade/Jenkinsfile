@@ -4,7 +4,7 @@ pipeline {
         stage('Setup') {
             steps {
                 wrap([$class: 'AnsiColorBuildWrapper', colorMapName: "xterm"]) {
-                    ansiblePlaybook(playbook: 'upgrade/setup.yml', colorized: true)
+                    ansiblePlaybook(playbook: 'tests/upgrade/setup.yml', colorized: true)
                 }
             }
         }
@@ -12,8 +12,8 @@ pipeline {
             steps {
                 wrap([$class: 'AnsiColorBuildWrapper', colorMapName: "xterm"]) {
                     ansiblePlaybook(
-                        playbook: 'upgrade/install.yml',
-                        inventory: 'upgrade/mm-test-inventory',
+                        playbook: 'tests/upgrade/install.yml',
+                        inventory: 'tests/upgrade/mm-test-inventory',
                         colorized: true
                     )
                 }
@@ -23,8 +23,8 @@ pipeline {
             steps {
                 wrap([$class: 'AnsiColorBuildWrapper', colorMapName: "xterm"]) {
                     ansiblePlaybook(
-                        playbook: 'upgrade/test.yml',
-                        inventory: 'upgrade/mm-test-inventory',
+                        playbook: 'tests/upgrade/test.yml',
+                        inventory: 'tests/upgrade/mm-test-inventory',
                         colorized: true
                     )
                 }
@@ -34,7 +34,7 @@ pipeline {
     post {
         always {
             wrap([$class: 'AnsiColorBuildWrapper', colorMapName: "xterm"]) {
-                ansiblePlaybook(playbook: 'upgrade/cleanup.yml', colorized: true)
+                ansiblePlaybook(playbook: 'tests/upgrade/cleanup.yml', colorized: true)
             }
         }
     }
