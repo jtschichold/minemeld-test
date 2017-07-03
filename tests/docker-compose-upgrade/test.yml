@@ -1,0 +1,236 @@
+- name: test docker compose upgrade
+  hosts: all
+  user: ubuntu
+  gather_facts: no
+  tasks:
+    - name: waiting for cloud-init
+      shell: find /var/lib/cloud/instances -name boot-finished | grep -q -E ".*"
+      delay: 30
+      retries: 20
+      register: result
+      until: result | success
+    - name: start docker service
+      service:
+        name: docker
+        state: started
+    - name: set minemeld docker image version
+      set_fact:
+        minemeld_docker_tag: "{{ lookup('env', 'MINEMELD_DOCKER_BASE_TAG') | default('0.9.36-build2', true)}}"
+    - name: copy docker-compose set up
+      template:
+        src: docker-compose.yml
+        dest: /home/ubuntu/docker-compose.yml
+        owner: ubuntu
+        group: ubuntu
+    - name: start minemeld container
+      shell: docker-compose up -d
+      args:
+        chdir: /home/ubuntu
+      register: result
+    - debug:
+        msg: "{{result.stdout_lines}}"
+    - name: check running container
+      shell: docker ps --format "{{ '{{' }} .ID {{ '}}' }}"
+      register: result
+    - set_fact:
+        minemeld_running_id: "{{result.stdout_lines[0]}}"
+    - assert:
+        that:
+        - minemeld_running_id != ""
+        - minemeld_running_id is defined
+      ignore_errors: yes
+    - name: retrieve container logs
+      shell: docker logs {{ minemeld_running_id }}
+      register: result
+    - name: dump logs
+      debug:
+        msg: "{{ result.stdout_lines }}"
+    - name: retrieve image name
+      shell: docker ps --format "{{ '{{' }} .Image {{ '}}' }}" --filter "id={{minemeld_running_id}}"
+      register: result
+    - assert:
+        that:
+        - result.stdout_lines[0] == "jtschichold/minemeld:{{minemeld_docker_tag}}"
+      ignore_errors: yes
+    - name: base image name
+      debug:
+        msg: "{{ result.stdout_lines[0] }}"
+    - name: wait for 8443
+      wait_for:
+        host: "127.0.0.1"
+        port: 8443
+        delay: 20
+        timeout: 320
+        state: started
+    - name: check minemeld API
+      uri:
+        url: "https://127.0.0.1:8443/status/minemeld"
+        validate_certs: no
+        user: admin
+        password: minemeld
+        force_basic_auth: yes
+        return_content: yes
+      register: status
+      delay: 30
+      retries: 10
+      until: status['status']|default(0) == 200
+    - name: check nodes
+      assert:
+        that:
+          - 'item.state == 5'
+          - 'item.sub_state is not defined or item.sub_state != "ERROR"'
+      with_items: '{{ status.json.result }}'
+
+    # install misp extension
+    - name: install minemeld-misp extension
+      uri:
+        url: "https://127.0.0.1:8443/extensions/git-install"
+        validate_certs: no
+        method: POST
+        user: admin
+        password: minemeld
+        body:
+          ep: https://github.com/PaloAltoNetworks/minemeld-misp.git
+          ref: 0.1b5
+        force_basic_auth: yes
+        return_content: yes
+        body_format: json
+    - name: waiting for extension
+      pause: minutes=1
+    - name: list extensions
+      uri:
+        url: "https://127.0.0.1:8443/extensions"
+        validate_certs: no
+        user: admin
+        password: minemeld
+        force_basic_auth: yes
+        return_content: yes
+      register: result
+    - debug:
+        msg: "{{ result.json }}"
+    - set_fact:
+        extension: "{{ result.json['result'][0] }}"
+    - assert:
+        that:
+          - extension.installed == true
+          - extension.activated == false
+    - name: activate misp extension
+      uri:
+        url: "https://127.0.0.1:8443/extensions/minemeld-misp/activate"
+        validate_certs: no
+        user: admin
+        password: minemeld
+        force_basic_auth: yes
+        return_content: yes
+        method: POST
+        body_format: json
+        body:
+          # this is weird, for some reason uri module replaces the password with ********* everywhere
+          path: "{{ extension.path | regex_replace('\\*\\*\\*\\*\\*\\*\\*\\*', 'minemeld') }}"
+          version: "{{ extension.version }}"
+      register: result
+    - name: waiting for extension
+      pause: minutes=1
+    - name: list extensions
+      uri:
+        url: "https://127.0.0.1:8443/extensions"
+        validate_certs: no
+        user: admin
+        password: minemeld
+        force_basic_auth: yes
+        return_content: yes
+      register: result
+    - set_fact:
+        extension: "{{ result.json['result'][0] }}"
+    - assert:
+        that:
+          - result.json['result']|length == 1
+          - extension.installed == true
+          - extension.activated == true
+
+    # upgrade container
+    - name: set minemeld docker image version to upgrade
+      set_fact:
+        minemeld_docker_tag: "{{ lookup('env', 'MINEMELD_DOCKER_UPGRADE_TAG') | default('latest', true)}}"
+    - name: copy docker-compose set up
+      template:
+        src: docker-compose.yml
+        dest: /home/ubuntu/docker-compose.yml
+        owner: ubuntu
+        group: ubuntu
+    - name: start minemeld container upgrade
+      shell: docker-compose up -d
+      args:
+        chdir: /home/ubuntu
+      register: result
+    - debug:
+        msg: "{{result.stdout_lines}}"
+    - name: check running container
+      shell: docker ps --format "{{ '{{' }} .ID {{ '}}' }}"
+      register: result
+    - set_fact:
+        minemeld_running_id: "{{result.stdout_lines[0]}}"
+    - assert:
+        that:
+        - minemeld_running_id != ""
+        - minemeld_running_id is defined
+      ignore_errors: yes
+    - name: retrieve container logs
+      shell: docker logs {{ minemeld_running_id }}
+      register: result
+    - name: dump logs
+      debug:
+        msg: "{{ result.stdout_lines }}"
+    - name: retrieve image name
+      shell: docker ps --format "{{ '{{' }} .Image {{ '}}' }}" --filter "id={{minemeld_running_id}}"
+      register: result
+    - name: upgrade image name
+      debug:
+        msg: "{{ result.stdout_lines[0] }}"
+    - assert:
+        that:
+        - result.stdout_lines[0] == "jtschichold/minemeld:{{minemeld_docker_tag}}"
+      ignore_errors: yes
+    - name: wait for 8443
+      wait_for:
+        host: "127.0.0.1"
+        port: 8443
+        delay: 20
+        timeout: 320
+        state: started
+    - name: check minemeld API
+      uri:
+        url: "https://127.0.0.1:8443/status/minemeld"
+        validate_certs: no
+        user: admin
+        password: minemeld
+        force_basic_auth: yes
+        return_content: yes
+      register: status
+      delay: 30
+      retries: 10
+      until: status['status']|default(0) == 200
+    - name: check nodes
+      assert:
+        that:
+          - 'item.state == 5'
+          - 'item.sub_state is not defined or item.sub_state != "ERROR"'
+      with_items: '{{ status.json.result }}'
+
+    # check extensions again
+    - name: list extensions
+      uri:
+        url: "https://127.0.0.1:8443/extensions"
+        validate_certs: no
+        user: admin
+        password: minemeld
+        force_basic_auth: yes
+        return_content: yes
+      register: result
+    - set_fact:
+        extension: "{{ result.json['result'][0] }}"
+    - assert:
+        that:
+          - result.json['result']|length == 1
+          - extension.installed == true
+          - extension.activated == true

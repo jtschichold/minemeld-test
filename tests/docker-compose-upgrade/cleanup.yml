@@ -8,7 +8,7 @@
         region: "{{ lookup('env', 'AWS_REGION') }}"
         filters:
           instance-state-name: running
-          "tag:Name": mm-upgrade-test
+          "tag:Name": mm-docker-upgrade-test
       register: ec2
     - debug:
         msg: 'instances {{ ec2 }}'

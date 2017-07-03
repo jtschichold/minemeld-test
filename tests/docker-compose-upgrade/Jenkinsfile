@@ -1,0 +1,30 @@
+pipeline {
+    agent any
+    stages {
+        stage('Setup') {
+            steps {
+                wrap([$class: 'AnsiColorBuildWrapper', colorMapName: "xterm"]) {
+                    ansiblePlaybook(playbook: 'tests/docker-compose-upgrade/setup.yml', colorized: true)
+                }
+            }
+        }
+        stage('Test') {
+            steps {
+                wrap([$class: 'AnsiColorBuildWrapper', colorMapName: "xterm"]) {
+                    ansiblePlaybook(
+                        playbook: 'tests/docker-compose-upgrade/test.yml',
+                        inventory: 'tests/docker-compose-upgrade/mm-test-inventory',
+                        colorized: true
+                    )
+                }
+            }
+        }
+    }
+    post {
+        always {
+            wrap([$class: 'AnsiColorBuildWrapper', colorMapName: "xterm"]) {
+                ansiblePlaybook(playbook: 'tests/docker-compose-upgrade/cleanup.yml', colorized: true)
+            }
+        }
+    }
+}
